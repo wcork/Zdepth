@@ -1,6 +1,7 @@
 // Copyright 2019 (c) Christopher A. Taylor.  All rights reserved.
 
 #include "zdepth.hpp"
+#include <cstdint>
 using namespace zdepth;
 
 
@@ -215,7 +216,7 @@ using namespace std;
 
 static zdepth::DepthCompressor compressor, decompressor;
 
-bool TestFrame(const uint16_t* frame, bool keyframe)
+bool TestFrame(const uint16_t* frame, bool keyframe, bool is_quantized = true)
 {
     std::vector<uint8_t> compressed;
 
@@ -224,13 +225,13 @@ bool TestFrame(const uint16_t* frame, bool keyframe)
 
     const uint64_t t0 = GetTimeUsec();
 
-    compressor.Compress(Width, Height, frame, compressed, keyframe);
+    compressor.Compress(Width, Height, frame, compressed, keyframe, is_quantized);
 
     const uint64_t t1 = GetTimeUsec();
 
     int width, height;
     std::vector<uint16_t> depth;
-    zdepth::DepthResult result = decompressor.Decompress(compressed, width, height, depth);
+    zdepth::DepthResult result = decompressor.Decompress(compressed, width, height, depth, is_quantized);
 
     const uint64_t t2 = GetTimeUsec();
 
@@ -245,10 +246,19 @@ bool TestFrame(const uint16_t* frame, bool keyframe)
         return false;
     }
 
-    for (int i = 0; i < depth.size(); ++i) {
-        if (AzureKinectQuantizeDepth(depth[i]) != AzureKinectQuantizeDepth(frame[i])) {
-            cout << "Decompression failed: Contents did not match at offset = " << i << endl;
-            return false;
+    if (is_quantized) {
+        for (int i = 0; i < depth.size(); ++i) {
+            if (AzureKinectQuantizeDepth(depth[i]) != AzureKinectQuantizeDepth(frame[i])) {
+                cout << "Decompression failed: Contents did not match at offset = " << i << endl;
+                return false;
+            }
+        }
+    } else {
+        for (int i = 0; i < depth.size(); ++i) {
+            if (depth[i] != frame[i]) {
+                cout << "Decompression failed: Contents did not match at offset = " << i << endl;
+                return false;
+            }
         }
     }
 
@@ -258,6 +268,10 @@ bool TestFrame(const uint16_t* frame, bool keyframe)
         " bytes (ratio = " << original_bytes / (float)compressed.size() << ":1) ("
         << (compressed.size() * 30 * 8) / 1000000.f << " Mbps @ 30 FPS)" << endl;
     cout << "Zdepth Speed: Compressed in " << (t1 - t0) / 1000.f << " msec. Decompressed in " << (t2 - t1) / 1000.f << " msec" << endl;
+
+    if (!is_quantized) {
+        return true;
+    }
 
     const int n = Width * Height;
     std::vector<uint16_t> quantized(n);
@@ -304,14 +318,14 @@ bool TestFrame(const uint16_t* frame, bool keyframe)
     return true;
 }
 
-bool TestPattern(const uint16_t* frame0, const uint16_t* frame1)
+bool TestPattern(const uint16_t* frame0, const uint16_t* frame1, bool is_quantized = true)
 {
     cout << endl;
     cout << "===================================================================" << endl;
     cout << "+ Test: Frame 0 Keyframe=true compression" << endl;
     cout << "===================================================================" << endl;
 
-    if (!TestFrame(frame0, true)) {
+    if (!TestFrame(frame0, true, is_quantized)) {
         cout << "Failure: frame0 failed";
         return false;
     }
@@ -321,7 +335,7 @@ bool TestPattern(const uint16_t* frame0, const uint16_t* frame1)
     cout << "+ Test: Frame 1 Keyframe=false compression" << endl;
     cout << "===================================================================" << endl;
 
-    if (!TestFrame(frame1, false)) {
+    if (!TestFrame(frame1, false, is_quantized)) {
         cout << "Failure: frame1 failed";
         return false;
     }
@@ -358,6 +372,36 @@ int main(int argc, char* argv[])
     cout << "-------------------------------------------------------------------" << endl;
 
     if (!TestPattern(TestVector2_Person0, TestVector2_Person1)) {
+        cout << "Test failure: Person test vector" << endl;
+        return -3;
+    }
+    
+    cout << endl;
+    cout << "-------------------------------------------------------------------" << endl;
+    cout << "Test unquantized vector: Room" << endl;
+    cout << "-------------------------------------------------------------------" << endl;
+
+    if (!TestPattern(TestVector0_Room0, TestVector0_Room1, false)) {
+        cout << "Test failure: Room test vector" << endl;
+        return -1;
+    }
+
+    cout << endl;
+    cout << "-------------------------------------------------------------------" << endl;
+    cout << "Test unquantized vector: Ceiling" << endl;
+    cout << "-------------------------------------------------------------------" << endl;
+
+    if (!TestPattern(TestVector1_Ceiling0, TestVector1_Ceiling1, false)) {
+        cout << "Test failure: Ceiling test vector" << endl;
+        return -2;
+    }
+
+    cout << endl;
+    cout << "-------------------------------------------------------------------" << endl;
+    cout << "Test unquantized vector: Person" << endl;
+    cout << "-------------------------------------------------------------------" << endl;
+
+    if (!TestPattern(TestVector2_Person0, TestVector2_Person1, false)) {
         cout << "Test failure: Person test vector" << endl;
         return -3;
     }

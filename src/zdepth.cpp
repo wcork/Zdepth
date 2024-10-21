@@ -371,12 +371,22 @@ DepthResult DepthCompressor::Compress(
     // Do Zstd compressions all together to keep the code cache hot:
 
     Pad12(Surfaces);
-    Pack12(Surfaces, Packed);
+    if (is_quantized) {
+        Pack12(Surfaces, Packed);
+    } else {
+        Packed.resize(Surfaces.size() * sizeof(uint16_t));
+        memcpy(Packed.data(), Surfaces.data(), Packed.size());
+    }
     Surfaces_UncompressedBytes = static_cast<unsigned>( Packed.size() );
     ZstdCompress(Packed, SurfacesOut);
 
     Pad12(Edges);
-    Pack12(Edges, Packed);
+    if (is_quantized) {
+        Pack12(Edges, Packed);
+    } else {
+        Packed.resize(Edges.size() * sizeof(uint16_t));
+        memcpy(Packed.data(), Edges.data(), Packed.size());
+    }
     Edges_UncompressedBytes = static_cast<unsigned>( Packed.size() );
     ZstdCompress(Packed, EdgesOut);
 
@@ -668,7 +678,12 @@ DepthResult DepthCompressor::Decompress(
     if (!success) {
         return DepthResult::Corrupted;
     }
-    Unpack12(Packed, Edges);
+    if (is_quantized) {
+        Unpack12(Packed, Edges);
+    } else {
+        Edges.resize(Packed.size() / 2);
+        memcpy(Edges.data(), Packed.data(), Packed.size());
+    }
 
     success = ZstdDecompress(
         SurfacesData,
@@ -678,7 +693,12 @@ DepthResult DepthCompressor::Decompress(
     if (!success) {
         return DepthResult::Corrupted;
     }
-    Unpack12(Packed, Surfaces);
+    if (is_quantized) {
+        Unpack12(Packed, Surfaces);
+    } else {
+        Surfaces.resize(Packed.size() / 2);
+        memcpy(Surfaces.data(), Packed.data(), Packed.size());
+    }
 
     success = ZstdDecompress(
         BlocksData,
@@ -702,7 +722,6 @@ DepthResult DepthCompressor::Decompress(
     if (is_quantized) {
         DequantizeDepthImage(width, height, depth, depth_out);
     } else {
-
         depth_out.resize(width*height);
         memcpy(depth_out.data(), depth, width*height*sizeof(uint16_t));
     }
