@@ -275,7 +275,8 @@ public:
         int height,
         const uint16_t* unquantized_depth,
         std::vector<uint8_t>& compressed,
-        bool keyframe);
+        bool keyframe,
+        bool is_quantized = true);
 
     // Decompress buffer to depth array.
     // Resulting depth buffer is row-first, stride=width*2 (no surprises).
@@ -284,7 +285,8 @@ public:
         const std::vector<uint8_t>& compressed,
         int& width,
         int& height,
-        std::vector<uint16_t>& depth_out);
+        std::vector<uint16_t>& depth_out,
+    bool is_quantized = true);
 
 protected:
     // Depth values quantized for current and last frame

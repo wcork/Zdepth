@@ -1,6 +1,7 @@
 // Copyright 2019 (c) Christopher A. Taylor.  All rights reserved.
 
 #include "zdepth.hpp"
+#include <cstdint>
 #include <zstd.h> // Zstd
 #include <string.h> // memcpy
 
@@ -332,7 +333,8 @@ DepthResult DepthCompressor::Compress(
     int height,
     const uint16_t* unquantized_depth,
     std::vector<uint8_t>& compressed,
-    bool keyframe)
+    bool keyframe,
+    bool is_quantized)
 {
     // Enforce that image dimensions are multiples of the block size
     if(width % kBlockSize != 0 || height % kBlockSize != 0) {
@@ -345,8 +347,13 @@ DepthResult DepthCompressor::Compress(
     }
     ++CompressedFrameNumber;
 
-    // Quantize the depth image
-    QuantizeDepthImage(width, height, unquantized_depth, QuantizedDepth[CurrentFrameIndex]);
+    if (is_quantized) {
+        // Quantize the depth image
+        QuantizeDepthImage(width, height, unquantized_depth, QuantizedDepth[CurrentFrameIndex]);
+    } else {
+        QuantizedDepth[CurrentFrameIndex].resize(width * height);
+        memcpy(QuantizedDepth[CurrentFrameIndex].data(), unquantized_depth, (width*height)*sizeof(uint16_t));
+    }
 
     // Get depth for previous frame
     const uint16_t* depth = QuantizedDepth[CurrentFrameIndex].data();
@@ -579,7 +586,8 @@ DepthResult DepthCompressor::Decompress(
     const std::vector<uint8_t>& compressed,
     int& width,
     int& height,
-    std::vector<uint16_t>& depth_out)
+    std::vector<uint16_t>& depth_out,
+    bool is_quantized)
 {
     if (compressed.size() < kDepthHeaderBytes) {
         return DepthResult::FileTruncated;
@@ -691,7 +699,13 @@ DepthResult DepthCompressor::Decompress(
         return DepthResult::Corrupted;
     }
 
-    DequantizeDepthImage(width, height, depth, depth_out);
+    if (is_quantized) {
+        DequantizeDepthImage(width, height, depth, depth_out);
+    } else {
+
+        depth_out.resize(width*height);
+        memcpy(depth_out.data(), depth, width*height*sizeof(uint16_t));
+    }
     return DepthResult::Success;
 }
 
