@@ -370,8 +370,8 @@ DepthResult DepthCompressor::Compress(
 
     // Do Zstd compressions all together to keep the code cache hot:
 
-    Pad12(Surfaces);
     if (is_quantized) {
+        Pad12(Surfaces);
         Pack12(Surfaces, Packed);
     } else {
         Packed.resize(Surfaces.size() * sizeof(uint16_t));
@@ -380,8 +380,8 @@ DepthResult DepthCompressor::Compress(
     Surfaces_UncompressedBytes = static_cast<unsigned>( Packed.size() );
     ZstdCompress(Packed, SurfacesOut);
 
-    Pad12(Edges);
     if (is_quantized) {
+        Pad12(Edges);
         Pack12(Edges, Packed);
     } else {
         Packed.resize(Edges.size() * sizeof(uint16_t));
