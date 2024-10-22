@@ -1,6 +1,7 @@
 // Copyright 2019 (c) Christopher A. Taylor.  All rights reserved.
 
 #include "zdepth.hpp"
+#include <cstddef>
 #include <cstdint>
 using namespace zdepth;
 
@@ -247,14 +248,14 @@ bool TestFrame(const uint16_t* frame, bool keyframe, bool is_quantized = true)
     }
 
     if (is_quantized) {
-        for (int i = 0; i < depth.size(); ++i) {
+        for (size_t i = 0; i < depth.size(); ++i) {
             if (AzureKinectQuantizeDepth(depth[i]) != AzureKinectQuantizeDepth(frame[i])) {
                 cout << "Decompression failed: Contents did not match at offset = " << i << endl;
                 return false;
             }
         }
     } else {
-        for (int i = 0; i < depth.size(); ++i) {
+        for (size_t i = 0; i < depth.size(); ++i) {
             if (depth[i] != frame[i]) {
                 cout << "Decompression failed: Contents did not match at offset = " << i << endl;
                 return false;
@@ -296,7 +297,7 @@ bool TestFrame(const uint16_t* frame, bool keyframe, bool is_quantized = true)
     DequantizeDepthImage(Width, Height, quantized.data(), depth);
     const uint64_t t8 = GetTimeUsec();
 
-    for (int i = 0; i < depth.size(); ++i) {
+    for (size_t i = 0; i < depth.size(); ++i) {
         if (AzureKinectQuantizeDepth(depth[i]) != AzureKinectQuantizeDepth(frame[i])) {
             cout << "Decompression failed: Contents did not match at offset = " << i << endl;
             return false;
